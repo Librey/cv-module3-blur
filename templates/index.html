@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blur in space, blur in frequency | CSc 8830 Module 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f5f6f8;
+    --panel: #ffffff;
+    --ink: #18212e;
+    --muted: #5d6878;
+    --line: #d9dde4;
+    --space: #2f4fbf;      /* spatial-domain results */
+    --space-soft: #e8edfb;
+    --freq: #b9651b;       /* Fourier-domain results */
+    --freq-soft: #fbeddc;
+    --ok: #1f7a4d;
+    --bad: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #12161d; --panel: #1a2029; --ink: #e8ecf2; --muted: #9aa5b5; --line: #2b3441;
+      --space: #86a0ff; --space-soft: #1d2740; --freq: #f0a45f; --freq-soft: #3a2a19;
+      --ok: #6fd3a1; --bad: #ff8d84;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5; font-size: 15px;
+  }
+  a { color: inherit; }
+  header.top {
+    display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+    padding: .8rem 1.5rem; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header.top .course { font-weight: 600; }
+  header.top nav { display: flex; gap: 1rem; margin-left: auto; font-size: .9rem; }
+  header.top nav a { text-decoration: none; color: var(--muted); padding: .2rem 0; border-bottom: 2px solid transparent; }
+  header.top nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
+  header.top nav a:hover { color: var(--ink); }
+
+  .intro { max-width: 1180px; margin: 2rem auto 1rem; padding: 0 1.5rem; }
+  h1 {
+    font-family: "Newsreader", Georgia, "Times New Roman", serif;
+    font-weight: 600; font-size: clamp(1.9rem, 4vw, 2.7rem); line-height: 1.12; margin: 0 0 .6rem; letter-spacing: -.01em;
+  }
+  .identity {
+    display: flex; flex-wrap: wrap; align-items: stretch; gap: .8rem; margin-top: 1rem;
+  }
+  .identity .side {
+    flex: 1 1 260px; padding: .9rem 1.1rem; border-radius: 6px; border: 1px solid var(--line); background: var(--panel);
+  }
+  .identity .side.s { border-left: 5px solid var(--space); }
+  .identity .side.f { border-left: 5px solid var(--freq); }
+  .identity .name { font-size: .85rem; color: var(--muted); }
+  .identity .eq { font-family: "Newsreader", Georgia, serif; font-size: 1.45rem; margin-top: .1rem; }
+  .identity .eq i { font-style: italic; }
+  .identity .mid { align-self: center; font-family: "Newsreader", Georgia, serif; font-size: 1.8rem; color: var(--muted); }
+
+  main.layout {
+    max-width: 1180px; margin: 0 auto; padding: 0 1.5rem 3rem;
+    display: grid; grid-template-columns: 290px 1fr; gap: 1.6rem; align-items: start;
+  }
+  @media (max-width: 860px) { main.layout { grid-template-columns: 1fr; } }
+
+  form.controls {
+    position: sticky; top: 1rem; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 1.1rem 1.1rem 1.2rem;
+  }
+  @media (max-width: 860px) { form.controls { position: static; } }
+  form.controls h2 { font-size: 1rem; margin: 0 0 .8rem; }
+  fieldset { border: 0; padding: 0; margin: 0 0 1rem; }
+  legend, label.lbl { font-size: .85rem; font-weight: 600; margin-bottom: .35rem; display: block; padding: 0; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label { flex: 1; text-align: center; padding: .45rem .3rem; cursor: pointer; font-size: .9rem; }
+  .seg input:checked + label { background: var(--ink); color: var(--paper); }
+  .seg input:focus-visible + label { outline: 2px solid var(--space); outline-offset: -2px; }
+  input[type="range"] { width: 100%; accent-color: var(--space); }
+  .val { font-variant-numeric: tabular-nums; float: right; font-weight: 500; color: var(--muted); }
+  select, input[type="file"] {
+    width: 100%; padding: .4rem; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); font: inherit;
+  }
+  .check { display: flex; gap: .55rem; align-items: flex-start; font-size: .88rem; }
+  .check input { margin-top: .2rem; }
+  .check small { display: block; color: var(--muted); }
+  button.run {
+    width: 100%; padding: .7rem; font: inherit; font-weight: 600; border: 0; border-radius: 6px; cursor: pointer;
+    background: var(--space); color: #fff;
+  }
+  button.run:hover { filter: brightness(1.08); }
+  button.run:focus-visible { outline: 3px solid var(--freq); outline-offset: 2px; }
+  button.run[disabled] { opacity: .6; cursor: progress; }
+  .kpreview { display: flex; align-items: center; gap: .8rem; margin-top: 1rem; font-size: .8rem; color: var(--muted); }
+  .kpreview img { width: 64px; height: 64px; image-rendering: pixelated; border: 1px solid var(--line); border-radius: 3px; }
+
+  .results { min-width: 0; }
+  .banner {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.2rem;
+    padding: 1rem 1.2rem; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); margin-bottom: 1.2rem;
+  }
+  .banner .big { font-family: "Newsreader", Georgia, serif; font-size: 2.1rem; font-variant-numeric: tabular-nums; line-height: 1; }
+  .banner.ok .big { color: var(--ok); }
+  .banner.bad .big { color: var(--bad); }
+  .banner .what { color: var(--muted); font-size: .9rem; }
+  .banner .verdict { font-weight: 600; margin-left: auto; }
+  .banner.ok .verdict { color: var(--ok); }
+  .banner.bad .verdict { color: var(--bad); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  figure img { display: block; width: 100%; height: auto; background: #000; }
+  figcaption { padding: .55rem .8rem; font-size: .85rem; border-top: 3px solid var(--line); }
+  figure.s figcaption { border-top-color: var(--space); }
+  figure.f figcaption { border-top-color: var(--freq); }
+  figcaption strong { display: block; font-size: .9rem; }
+  figcaption span { color: var(--muted); }
+  .wide { margin-top: 1rem; }
+  .wide img { background: #fff; }
+
+  table.metrics { width: 100%; border-collapse: collapse; margin-top: 1.2rem; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  table.metrics th, table.metrics td { text-align: left; padding: .5rem .8rem; border-bottom: 1px solid var(--line); font-size: .9rem; }
+  table.metrics td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  table.metrics tr:last-child td, table.metrics tr:last-child th { border-bottom: 0; }
+  table.metrics th { font-weight: 500; color: var(--muted); }
+  .explain { margin-top: 1.2rem; color: var(--muted); font-size: .9rem; max-width: 75ch; }
+  .err { padding: .9rem 1.1rem; border: 1px solid var(--bad); color: var(--bad); border-radius: 8px; background: var(--panel); }
+  .loading { opacity: .5; transition: opacity .15s; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="course">CSc 8830 Computer Vision</span>
+  <nav aria-label="Assignments">
+    <!-- Add a link here for every other assignment/module page you host. -->
+    <a href="/" aria-current="page">Module 3: Blur and Fourier</a>
+  </nav>
+</header>
+
+<section class="intro">
+  <h1>The same blur, computed in space and in frequency</h1>
+  <div class="identity" aria-label="Convolution theorem">
+    <div class="side s">
+      <div class="name">Spatial domain: slide the kernel over the image</div>
+      <div class="eq"><i>g</i>(<i>x</i>,<i>y</i>) = <i>f</i>(<i>x</i>,<i>y</i>) ∗ <i>h</i>(<i>x</i>,<i>y</i>)</div>
+    </div>
+    <div class="mid" aria-hidden="true">⇔</div>
+    <div class="side f">
+      <div class="name">Fourier domain: multiply the two spectra</div>
+      <div class="eq"><i>G</i>(<i>u</i>,<i>v</i>) = <i>F</i>(<i>u</i>,<i>v</i>) · <i>H</i>(<i>u</i>,<i>v</i>)</div>
+    </div>
+  </div>
+</section>
+
+<main class="layout">
+  <form class="controls" id="form" autocomplete="off">
+    <h2>Blur settings</h2>
+
+    <fieldset>
+      <legend>Kernel</legend>
+      <div class="seg" role="radiogroup">
+        <input type="radio" name="kernel" id="k-gauss" value="gaussian" checked><label for="k-gauss">Gaussian</label>
+        <input type="radio" name="kernel" id="k-box" value="box"><label for="k-box">Box</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <label class="lbl" for="size">Kernel size <span class="val" id="sizeVal">15 × 15</span></label>
+      <input type="range" id="size" name="size" min="3" max="41" step="2" value="15">
+    </fieldset>
+
+    <fieldset id="sigmaWrap">
+      <label class="lbl" for="sigma">Gaussian sigma <span class="val" id="sigmaVal">2.5 px</span></label>
+      <input type="range" id="sigma" name="sigma" min="0.5" max="10" step="0.5" value="2.5">
+    </fieldset>
+
+    <fieldset>
+      <label class="lbl" for="sample">Image</label>
+      <select id="sample" name="sample">
+        {% for s in samples %}<option value="{{ s }}">{{ s }} (sample)</option>{% endfor %}
+      </select>
+      <label class="lbl" for="image" style="margin-top:.6rem">or upload your own</label>
+      <input type="file" id="image" name="image" accept="image/*">
+    </fieldset>
+
+    <fieldset>
+      <label class="check">
+        <input type="checkbox" id="zero_pad" checked>
+        <span>Zero-pad before the FFT
+          <small>Turn off to see wrap-around from circular convolution at the borders.</small></span>
+      </label>
+    </fieldset>
+
+    <button class="run" type="submit" id="runBtn">Blur and compare</button>
+    <div class="kpreview" id="kpreview" hidden>
+      <img id="kimg" alt="Kernel weights, brighter is larger">
+      <span>Kernel weights (brighter = larger)</span>
+    </div>
+  </form>
+
+  <section class="results" id="results" aria-live="polite">
+    <p class="explain">Choose a kernel and press <strong>Blur and compare</strong>. The left result uses direct spatial convolution written from the definition. The right one multiplies FFTs. They should match to floating-point precision.</p>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const form = $("form"), results = $("results");
+
+function sci(x) { return x === 0 ? "0" : x.toExponential(2); }
+function ms(s) { return (s * 1000).toFixed(1) + " ms"; }
+
+function syncLabels() {
+  const k = $("size").value;
+  $("sizeVal").textContent = k + " × " + k;
+  $("sigmaVal").textContent = $("sigma").value + " px";
+  $("sigmaWrap").style.display = document.querySelector('input[name="kernel"]:checked').value === "gaussian" ? "" : "none";
+}
+$("size").addEventListener("input", () => {
+  // keep sigma at about size/6 (kernel spans roughly +/-3 sigma) until the user changes sigma
+  if (!$("sigma").dataset.touched) {
+    const s = Math.min(10, Math.max(0.5, Math.round((Number($("size").value) / 6) * 2) / 2));
+    $("sigma").value = s;
+  }
+  syncLabels();
+});
+$("sigma").addEventListener("input", () => { $("sigma").dataset.touched = "1"; syncLabels(); });
+document.querySelectorAll('input[name="kernel"]').forEach((r) => r.addEventListener("change", syncLabels));
+syncLabels();
+
+async function run(e) {
+  if (e) e.preventDefault();
+  const fd = new FormData();
+  fd.append("kernel", document.querySelector('input[name="kernel"]:checked').value);
+  fd.append("size", $("size").value);
+  fd.append("sigma", $("sigma").value);
+  fd.append("sample", $("sample").value);
+  fd.append("zero_pad", $("zero_pad").checked ? "true" : "false");
+  if ($("image").files[0]) fd.append("image", $("image").files[0]);
+
+  $("runBtn").disabled = true; $("runBtn").textContent = "Computing...";
+  results.classList.add("loading");
+  try {
+    const r = await fetch("/api/blur", { method: "POST", body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Request failed");
+    render(d);
+  } catch (err) {
+    results.innerHTML = '<div class="err"><strong>Could not process the image.</strong> ' + String(err.message).replace(/</g, "&lt;") + "</div>";
+  } finally {
+    $("runBtn").disabled = false; $("runBtn").textContent = "Blur and compare";
+    results.classList.remove("loading");
+  }
+}
+
+function render(d) {
+  const m = d.metrics;
+  const identical = m.max_abs_error < 1e-6;
+  $("kimg").src = d.kernel_preview; $("kpreview").hidden = false;
+  const [h, w] = d.image_shape;
+  results.innerHTML = `
+    <div class="banner ${identical ? "ok" : "bad"}">
+      <span class="big">${sci(m.max_abs_error)}</span>
+      <span class="what">largest pixel difference between the two blurs (gray levels, 0 to 255)</span>
+      <span class="verdict">${identical
+        ? "Identical to floating-point precision"
+        : "Results differ: without padding the FFT wraps around the image edges"}</span>
+    </div>
+    <div class="grid">
+      <figure><img src="${d.original}" alt="Original image"><figcaption><strong>Original</strong><span>${w} × ${h} px</span></figcaption></figure>
+      <figure class="s"><img src="${d.spatial}" alt="Image blurred by spatial convolution"><figcaption><strong>Spatial convolution</strong><span>f ∗ h, ${ms(m.t_spatial_s)}</span></figcaption></figure>
+      <figure class="f"><img src="${d.fourier}" alt="Image blurred in the Fourier domain"><figcaption><strong>Fourier multiplication</strong><span>IFFT( F · H ), ${ms(m.t_fft_s)}</span></figcaption></figure>
+      <figure><img src="${d.difference}" alt="Absolute difference between the two blurs"><figcaption><strong>Difference</strong><span>${d.diff_note}</span></figcaption></figure>
+    </div>
+    <figure class="wide"><img src="${d.spectra}" alt="Log-magnitude spectra of image, kernel, and their product, plus a slice of the kernel spectrum"><figcaption><strong>Spectra</strong><span>The kernel is a low-pass filter: it keeps the centre (low frequencies) and suppresses the outside (high frequencies). Multiplying the spectra applies that suppression to the image.</span></figcaption></figure>
+    <table class="metrics">
+      <tr><th>Max |spatial − Fourier|</th><td class="n">${sci(m.max_abs_error)}</td></tr>
+      <tr><th>Mean |spatial − Fourier|</th><td class="n">${sci(m.mean_abs_error)}</td></tr>
+      <tr><th>RMSE</th><td class="n">${sci(m.rmse)}</td></tr>
+      <tr><th>Max |spatial − SciPy convolve2d| (independent check)</th><td class="n">${sci(m.spatial_vs_scipy_max_abs)}</td></tr>
+      <tr><th>Max |Fourier − SciPy convolve2d| (independent check)</th><td class="n">${sci(m.fourier_vs_scipy_max_abs)}</td></tr>
+      <tr><th>Sum of kernel weights</th><td class="n">${m.kernel_sum.toFixed(6)}</td></tr>
+      <tr><th>Mean brightness: original / blurred</th><td class="n">${m.mean_in.toFixed(3)} / ${m.mean_spatial.toFixed(3)}</td></tr>
+    </table>
+    <p class="explain">Brightness changes slightly at the borders because pixels outside the image count as zero. The two methods make the same assumption, which is why they agree exactly when the FFT is zero-padded.</p>`;
+}
+
+form.addEventListener("submit", run);
+run();
+</script>
+</body>
+</html>
